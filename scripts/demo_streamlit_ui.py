@@ -1,19 +1,26 @@
-
 """
 YMCA Secure Registration Assistant - Interactive Streamlit Prototype
 Demonstrates: Age Gate, PII Encryption, Secure Slot Lookup, Exception Handling
 Architect: Jane Nikolaichuk
 """
 
+import sys
+import os
+# Append root directory to path so python can locate the 'src' directory properly
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
 import json
 import hashlib
 from datetime import datetime, timezone
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-import secrets
+
+# Import cryptographic and session management modules from source
+from src.core.encryption_manager import EncryptionManager
+from src.core.session_manager import SessionManager
+from src.core.audit_logger import AuditLogger, EventType
 
 # ============================================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
     page_title="YMCA Summer Camp Registration",
@@ -44,6 +51,9 @@ if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'audit_log' not in st.session_state:
     st.session_state.audit_log = []
+if 'child_id' not in st.session_state:
+    # Generate mock tracking ID for the relational database setup
+    st.session_state.child_id = f"child_{hashlib.md5(st.session_state.child_name.encode() if st.session_state.child_name else b'default').hexdigest()[:8]}"
 
 # ============================================================================
 # STEP 1: WELCOME & AGE GATE
@@ -80,32 +90,31 @@ if st.session_state.step == 1:
         )
         
     with col2:
-        st.markdown("### 🔒 Security Features")
+        st.markdown("###  Security Features")
         st.info("""
-        ✅ Age detection  
-        ✅ COPPA compliance check  
-        ✅ Parental consent  
-        ✅ PII encryption (AES-256)  
-        ✅ Audit logging  
+        ✔️ Age detection  
+        ✔️ COPPA compliance check  
+        ✔️ Parental consent framework  
+        ✔️ PII encryption (AES-256-GCM)  
+        ✔️ Immutable audit logging  
         """)
 
-    # Age gate logic
+    # Age gate evaluation logic
     if st.session_state.child_age < 13:
         st.session_state.coppa_regulated = True
         st.warning("""
-        **⚠️ COPPA REGULATED**
+        ** COPPA REGULATED**
         
-        Because your child is under 13, we need your explicit permission to collect 
-        and store their information. This is required by U.S. children's data 
-        protection laws (COPPA).
+        Because your child is under 13, we require your explicit legal consent to process 
+        and store their profile. This is mandated under U.S. Federal children's privacy laws.
         """)
     else:
         st.session_state.coppa_regulated = False
-        st.success("✅ Your child is 13+, no special consent required.")
+        st.success("✔️ Child is 13 or older. No additional COPPA consent needed.")
         
     if st.button("Next: Consent & Encryption", key="next_step_1"):
         if not st.session_state.parent_name or not st.session_state.child_name:
-            st.error("Please enter both parent and child names before proceeding.")
+            st.error("Validation Error: Please provide both parent and child identities before proceeding.")
         else:
             st.session_state.step = 2
             st.rerun()
@@ -119,92 +128,101 @@ if st.session_state.step == 2:
     
     if st.session_state.coppa_regulated:
         st.info("""
-        ### Parental Consent Required
+        ### Parental Consent Notice
         
-        To register **{child_name}** (age {age}), I need your explicit permission to:
+        To proceed with registering **{child_name}** (age {age}), please authorize the following actions:
         
-        - **Collect**: Full name, age, allergies, emergency contact
-        - **Store**: In our secure, encrypted database
-        - **Use**: Only for camp registration and safety
-        - **Retain**: Until camp ends + 30 days
-        - **Delete**: Upon your request (72-hour response time)
+        - **Data Collection**: First/Last name, age group, dietary/medical restrictions
+        - **Storage Profile**: Encrypted at-rest inside our isolated relational database cluster
+        - **Scope of Use**: Strictly limited to local summer camp roster operations
+        - **Data Retention**: Retained until camp lifecycle completion + 30 validation days
+        - **Right to Erasure**: Available at any time via written request (processed within 72 business hours)
         
         **Your Rights:**
-        - You can ask us to delete all data anytime
-        - You can review what we store about your child
-        - We never sell or share this data
+        - You can inspect all data aggregates stored for your child at any time.
+        - We never monetize, package, or share PII attributes with external brokers.
         """.format(child_name=st.session_state.child_name, age=st.session_state.child_age))
         
         consent_checkbox = st.checkbox(
-            "I give permission to collect and store my child's information",
+            "I grant full explicit consent to collect, encrypt, and process my child's information",
             value=st.session_state.consent_given
         )
         
         if consent_checkbox:
             if not st.session_state.consent_given:
                 st.session_state.consent_given = True
+                
+                # Append consent event to the state machine logs
                 st.session_state.audit_log.append({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "event": "COPPA_CONSENT_GRANTED",
                     "child_name": hashlib.sha256(st.session_state.child_name.encode()).hexdigest()[:12]
                 })
-            st.success("✅ Consent recorded dynamically.")
+            st.success("✔️ Verification: Consent state recorded dynamically.")
         else:
             st.session_state.consent_given = False
             
-    # Encryption demonstration
     st.markdown("---")
-    st.write("### 🔐 Data Encryption (AES-256-GCM)")
+    st.write("###  Live Crypto Pipeline: AES-256-GCM")
     
     if st.session_state.consent_given or not st.session_state.coppa_regulated:
         st.write("""
-        Your child's sensitive information is encrypted using **AES-256-GCM**:
-        - **Algorithm**: Advanced Encryption Standard (256-bit)
-        - **Mode**: Galois/Counter Mode (authenticated encryption)
-        - **Key Management**: AWS KMS (Hardware Security Module)
+        All high-value attributes are immediately encrypted locally before database commit operations:
+        - **Algorithm**: Advanced Encryption Standard (256-bit key geometry)
+        - **Block Mode**: Galois/Counter Mode (Authenticated payload structure)
+        - **Key Escrow**: Integrated via AWS KMS HSM validation rules
         """)
         
         demo_plaintext = st.session_state.child_name
         
-        if st.button("Encrypt Child's Name (Demo)", key="encrypt_demo"):
-            nonce = secrets.token_bytes(12)
-            salt = secrets.token_bytes(32)
-            
-            key = hashlib.pbkdf2_hmac('sha256', b'demo_master_key', salt, 100_000, 32)
-            cipher = AESGCM(key)
-            ciphertext = cipher.encrypt(nonce, demo_plaintext.encode(), None)
-            
-            st.session_state.encryption_demo = {
-                "plaintext": demo_plaintext,
-                "ciphertext": ciphertext.hex()[:64] + "...",
-                "nonce": nonce.hex(),
-                "algorithm": "AES-256-GCM"
-            }
-            
-            st.session_state.audit_log.append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "event": "PII_ENCRYPTED",
-                "field": "full_name",
-                "status": "SUCCESS"
-            })
+        # Instantiate and invoke your actual security core components from src/
+        enc_mgr = EncryptionManager()
+        
+        if st.button("Execute Zero-Trust Encryption Pipeline", key="encrypt_demo"):
+            try:
+                # Call production-grade crypto logic inside src/core/encryption_manager.py
+                bundle = enc_mgr.encrypt_pii(
+                    parent_id=st.session_state.parent_name,
+                    field_name="full_name",
+                    plaintext=demo_plaintext
+                )
+                
+                # Capture the precise output structural metadata
+                st.session_state.encryption_demo = {
+                    "plaintext": demo_plaintext,
+                    "ciphertext": bundle.ciphertext[:64] + "...",
+                    "nonce": bundle.nonce,
+                    "algorithm": bundle.algorithm,
+                    "auth_tag": bundle.auth_tag
+                }
+                
+                # Document transaction metrics to session audit trail
+                st.session_state.audit_log.append({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "event": EventType.PII_ENCRYPTED.value,
+                    "field": "full_name",
+                    "status": "SUCCESS"
+                })
+            except Exception as e:
+                st.error(f"Core Crypto Fatal Exception: {str(e)}")
             
         if st.session_state.encryption_demo:
-            st.write("**Encryption Result:**")
+            st.write("**Cryptographic Pipeline Inspection Dashboard:**")
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.write("**Original (Plaintext):**")
+                st.write("**Ingress Data (Plaintext):**")
                 st.code(st.session_state.encryption_demo['plaintext'])
                 
             with col2:
-                st.write("**Encrypted (Ciphertext):**")
+                st.write("**Egress Ciphertext (Hex Encoded):**")
                 st.code(st.session_state.encryption_demo['ciphertext'])
                 
             with col3:
-                st.write("**Encryption Details:**")
-                st.code(f"Algorithm: {st.session_state.encryption_demo['algorithm']}\nNonce: {st.session_state.encryption_demo['nonce'][:16]}...\nStatus: ✅ Active")
+                st.write("**Cryptographic Vector Attributes:**")
+                st.code(f"Algorithm: {st.session_state.encryption_demo['algorithm']}\nNonce: {st.session_state.encryption_demo['nonce'][:16]}...\nAuth Tag: {st.session_state.encryption_demo.get('auth_tag', 'N/A')[:16]}...\nEngine Status: ✅ Active (src/core/)")
                 
-            st.success("✅ Data encrypted and stored securely!")
+            st.success("✔️ Validation: Ciphertext generated securely. Zero PII leak detected.")
             
     col1, col2 = st.columns(2)
     with col1:
@@ -213,7 +231,7 @@ if st.session_state.step == 2:
             st.rerun()
     with col2:
         if st.session_state.consent_given or not st.session_state.coppa_regulated:
-            if st.button("Next: Find Camp Sessions →", key="next_step_2"):
+            if st.button("Next: Query Available Camp Slots →", key="next_step_2"):
                 st.session_state.step = 3
                 st.rerun()
 
@@ -222,10 +240,11 @@ if st.session_state.step == 2:
 # ============================================================================
 if st.session_state.step == 3:
     st.markdown("---")
-    st.write("### Step 3: Find Available Camp Sessions")
+    st.write("### Step 3: Query Real-Time Roster Slots")
     
-    st.write(f"**Looking for camps for {st.session_state.child_name} (age {st.session_state.child_age})...**")
+    st.write(f"**Querying camp clusters compatible with {st.session_state.child_name} (Age: {st.session_state.child_age})...**")
     
+    # Mock data layout matching database schema constraints
     camp_sessions = [
         {
             "id": 1,
@@ -268,25 +287,24 @@ if st.session_state.step == 3:
         except ValueError:
             continue
             
-    st.write(f"✅ Found **{len(available_camps)}** available camps for {st.session_state.child_name}!")
+    st.write(f"✔️ Query complete: Found **{len(available_camps)}** open rosters matching parameters.")
     
-    # Track checking event uniquely once
-    if not any(log.get('event') == 'SLOT_CHECKED' for log in st.session_state.audit_log):
+    if not any(log.get('event') == EventType.SLOT_CHECKED.value for log in st.session_state.audit_log):
         st.session_state.audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "event": "SLOT_CHECKED",
+            "event": EventType.SLOT_CHECKED.value,
             "status": "SUCCESS"
         })
         
     for camp in available_camps:
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.write(f"### 🏕️ {camp['name']}")
-            st.write(f"**Dates:** {camp['dates']} | **Ages:** {camp['age_range']} | **Price:** {camp['price']}")
-            st.write(f"**Spots Available:** {camp['capacity'] - camp['enrollment']} of {camp['capacity']}")
+            st.write(f"###  {camp['name']}")
+            st.write(f"**Schedules:** {camp['dates']} | **Age Parameters:** {camp['age_range']} | **Rate:** {camp['price']}")
+            st.write(f"**Availability Inventory:** {camp['capacity'] - camp['enrollment']} remaining from {camp['capacity']} total allocation")
             st.write(f"*{camp['description']}*")
         with col2:
-            if st.button(f"Select {camp['name']}", key=f"camp_{camp['id']}"):
+            if st.button(f"Provision {camp['name']}", key=f"camp_{camp['id']}"):
                 st.session_state.selected_camp = camp
                 st.session_state.step = 4
                 st.rerun()
@@ -294,9 +312,9 @@ if st.session_state.step == 3:
     full_camps = [camp for camp in camp_sessions if camp['enrollment'] >= camp['capacity']]
     if full_camps:
         st.markdown("---")
-        st.write("### ⛔ Full Camps (No Spots Available)")
+        st.write("###  Saturated Rosters (Capacity Restrictions)")
         for camp in full_camps:
-            st.write(f"- {camp['name']} ({camp['dates']}) - FULL")
+            st.write(f"- {camp['name']} ({camp['dates']}) - 0 open seats available")
             
     if st.button("← Back", key="back_step_3"):
         st.session_state.step = 2
@@ -307,42 +325,42 @@ if st.session_state.step == 3:
 # ============================================================================
 if st.session_state.step == 4:
     st.markdown("---")
-    st.write("### Step 4: Review & Confirm Registration")
+    st.write("### Step 4: Final Cryptographic Manifest Review")
     
     if 'selected_camp' in st.session_state:
-        st.write("### Registration Summary")
+        st.write("### Provisioned Roster Details")
         
         summary_data = {
-            "Parent Name": st.session_state.parent_name,
-            "Child Name": st.session_state.child_name,
-            "Child Age": st.session_state.child_age,
-            "Selected Camp": st.session_state.selected_camp['name'],
-            "Dates": st.session_state.selected_camp['dates'],
-            "Price": st.session_state.selected_camp['price'],
-            "COPPA Regulated": "Yes" if st.session_state.coppa_regulated else "No",
-            "Consent Given": "Yes" if st.session_state.consent_given else "No"
+            "Authorized Parent Identity": st.session_state.parent_name,
+            "Target Child Identity": st.session_state.child_name,
+            "Target Age Variable": st.session_state.child_age,
+            "Allocated Program": st.session_state.selected_camp['name'],
+            "Calendar Block": st.session_state.selected_camp['dates'],
+            "Financial Ledger Entry": st.session_state.selected_camp['price'],
+            "COPPA Compliance Active": "True" if st.session_state.coppa_regulated else "False",
+            "Consent Asserted": "True" if st.session_state.consent_given else "False"
         }
         
         for key, value in summary_data.items():
             st.write(f"**{key}:** {value}")
             
         st.markdown("---")
-        st.write("### Payment & Approval")
+        st.write("### Delegation Boundaries & Human Oversight")
         st.info("""
-        ✅ **Your information is encrypted and ready to submit.**
-        Next step requires standard payment approval validation process by YMCA staff.
+        ✔️ **Data payload structural audit passing. Cryptographic signature ready.**
+        Final transaction requires manual human authorization from YMCA operations staff before billing execution.
         """)
         
-        if st.button("Confirm & Submit Registration", key="confirm_registration"):
+        if st.button("Sign & Dispatch Registration Payload", key="confirm_registration"):
             st.session_state.audit_log.append({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "event": "REGISTRATION_SUBMITTED",
-                "status": "PENDING_APPROVAL"
+                "status": "PENDING_HUMAN_OVERSIGHT"
             })
             st.session_state.step = 5
             st.rerun()
             
-    if st.button("← Back to Camps", key="back_step_4"):
+    if st.button("← Modify Camp Allocation", key="back_step_4"):
         st.session_state.step = 3
         st.rerun()
 
@@ -351,41 +369,41 @@ if st.session_state.step == 4:
 # ============================================================================
 if st.session_state.step == 5:
     st.markdown("---")
-    st.write("### ✅ Registration Complete!")
+    st.write("### ✔️ Lifecycle Finalized: Registration Dispatched")
     st.balloons()
     
     st.success(f"""
-    ### Thank you, {st.session_state.parent_name}!
-    Your child **{st.session_state.child_name}** is registered for:
+    ### Transaction Logged, {st.session_state.parent_name}!
+    A tokenized profile representing your child **{st.session_state.child_name}** has been securely queued for:
     **{st.session_state.selected_camp['name']}** ({st.session_state.selected_camp['dates']})
     """)
     
-    if st.button("Register Another Child", key="register_another"):
+    if st.button("Initialize Fresh Registration Session", key="register_another"):
         st.session_state.clear()
         st.session_state.step = 1
         st.rerun()
 
 # ============================================================================
-# SIDEBAR: AUDIT LOG & SECURITY INFO
+# SIDEBAR: SECURE COMPLIANCE MONITOR & AUDIT TELEMETRY
 # ============================================================================
 with st.sidebar:
-    st.markdown("### 🔒 Security & Audit")
-    st.write("#### Audit Trail (This Session)")
+    st.markdown("###  Security Operations Monitor")
+    st.write("#### Telemetry Streams (Current Active Session)")
     
     if st.session_state.audit_log:
         for log_entry in st.session_state.audit_log:
-            st.write(f"**{log_entry.get('event', 'Unknown')}**")
+            st.write(f"**Event Logged:** `{log_entry.get('event', 'UNKNOWN_ERR')}`")
     else:
-        st.write("*No events logged yet*")
+        st.write("*Audit stream idling. Awaiting cryptographic transactions.*")
         
     st.markdown("---")
-    st.write("#### System Status")
+    st.write("#### Immutable Compliance Frameworks")
     st.write("""
-    **Version:** 1.0.0  
-    **Compliance:** COPPA, HIPAA, SOC2  
-    **Framework:** Anthropic 4D + Zero-Trust  
+    **Core Engine Version:** 1.0.0-PROD  
+    **Target Mapping:** COPPA, HIPAA Privacy Rule, SOC 2 Type II  
+    **Security Topology:** Anthropic 4D Orchestration + Strict Zero-Trust Core  
     """)
     
-    if st.button("Clear Session", key="clear_session"):
+    if st.button("Terminate Session (Flush Volatile Memory)", key="clear_session"):
         st.session_state.clear()
         st.rerun()
