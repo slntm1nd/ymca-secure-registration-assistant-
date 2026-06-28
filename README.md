@@ -2,7 +2,7 @@
 # YMCA Secure Summer Camp Registration Assistant
 
 **Architected & Developed by:** Jane Nikolaichuk  
-**Cybersecurity Foundation:** Per Scholas Certified Program (Cybersecurity)  
+**Cybersecurity Foundation:** Per Scholas Certified Program (Cybersecurity)
 **Professional Experience:** Northern Regional Recreation Center, Recreation Fitness Assistant (Huntersville, NC)  
 **Security Framework:** Anthropic 4D + Zero-Trust Architecture  
 **Compliance:** COPPA, HIPAA, SOC 2 Type II
