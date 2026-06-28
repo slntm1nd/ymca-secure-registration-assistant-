@@ -13,49 +13,49 @@ This document provides the exhaustive, end-to-end operational workflows and stru
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│  PARENT INITIATES REGISTRATION (Natural Language)          │
+│  PARENT INITIATES REGISTRATION (Natural Language)           │
 │  "Hi, I want to register my 8-year-old daughter Emma        │
-│   for summer camp. She's allergic to peanuts."             │
+│   for summer camp. She's allergic to peanuts."              │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 1: CLAUDE AI - AGE DETECTION (Discernment)           │
-│  ├─ Parse: "8-year-old" → child_age = 8                    │
-│  ├─ Check: 8 < 13 → COPPA_REGULATED = true                 │
-│  ├─ Flag: Ambiguous input? ("6 or 7?") → Ask clarification │
+│  STEP 1: CLAUDE AI - AGE DETECTION (Discernment)            │
+│  ├─ Parse: "8-year-old" → child_age = 8                     │
+│  ├─ Check: 8 < 13 → COPPA_REGULATED = true                  │
+│  ├─ Flag: Ambiguous input? ("6 or 7?") → Ask clarification  │
 │  └─ Decision: Route to COPPA consent flow                   │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 2: PARENTAL CONSENT COLLECTION (Delegation)          │
-│  ├─ Bot: "Because Emma is 8, I need YOUR permission to    │
-│  │        store her name, age, allergies, emergency        │
+│  STEP 2: PARENTAL CONSENT COLLECTION (Delegation)           │
+│  ├─ Bot: "Because Emma is 8, I need YOUR permission to      │
+│  │        store her name, age, allergies, emergency         │
 │  │        contact. OK?"                                     │
-│  ├─ Parent: "Yes, I consent"                               │
-│  ├─ System: Generate consent_token + timestamp             │
-│  └─ Action: Add to audit log (immutable)                   │
+│  ├─ Parent: "Yes, I consent"                                │
+│  ├─ System: Generate consent_token + timestamp              │
+│  └─ Action: Add to audit log (immutable)                    │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 3: ENCRYPTION MANAGER (Diligence)                    │
-│  ├─ Input: plaintext PII (Emma Johnson, DOB, etc.)         │
-│  ├─ Derive: DEK from KMS master key + child_id             │
-│  ├─ Encrypt: AES-256-GCM with nonce + auth_tag             │
-│  ├─ Output: {ciphertext, nonce, auth_tag} → RDS            │
-│  └─ Plaintext: NEVER logged, cleared from memory           │
+│  STEP 3: ENCRYPTION MANAGER (Diligence)                     │
+│  ├─ Input: plaintext PII (Emma Johnson, DOB, etc.)          │
+│  ├─ Derive: DEK from KMS master key + child_id              │
+│  ├─ Encrypt: AES-256-GCM with nonce + auth_tag              │
+│  ├─ Output: {ciphertext, nonce, auth_tag} → RDS             │
+│  └─ Plaintext: NEVER logged, cleared from memory            │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 4: AUDIT LOG ENTRY (Diligence)                       │
-│  ├─ Event: "PII_INTAKE_COMPLETE"                           │
-│  ├─ Fields: parent_id_hash, child_id_hash, timestamp,      │
-│  │          consent_token, ip_hash, user_agent_hash        │
-│  ├─ Storage: DynamoDB (immutable) + S3 WORM archive        │
-│  └─ TTL: 2555 days (7 years, HIPAA compliance)             │
+│  STEP 4: AUDIT LOG ENTRY (Diligence)                        │
+│  ├─ Event: "PII_INTAKE_COMPLETE"                            │
+│  ├─ Fields: parent_id_hash, child_id_hash, timestamp,       │
+│  │          consent_token, ip_hash, user_agent_hash         │
+│  ├─ Storage: DynamoDB (immutable) + S3 WORM archive         │
+│  └─ TTL: 2555 days (7 years, HIPAA compliance)              │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
