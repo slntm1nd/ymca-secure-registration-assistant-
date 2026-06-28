@@ -1,1 +1,212 @@
 
+CONFIGURATION FILES
+ymca-automation-logic.json
+json{
+  "system_metadata": {
+    "version": "1.0.0",
+    "framework": "Anthropic 4D + Zero-Trust",
+    "architect": "Jane Nikolaichuk",
+    "last_updated": "2026-06-15T12:00:00Z"
+  },
+
+  "coppa_compliance": {
+    "age_threshold_years": 13,
+    "regulated_fields": [
+      "full_name",
+      "date_of_birth",
+      "phone_number",
+      "email_address",
+      "home_address",
+      "medical_allergies",
+      "emergency_contact"
+    ],
+    "unregulated_fields": [
+      "age_range",
+      "camp_preference",
+      "skill_level"
+    ],
+    "consent_requirements": {
+      "required": true,
+      "must_be_explicit": true,
+      "must_be_timestamped": true,
+      "expires_after_days": 30,
+      "parent_deletion_sla_hours": 72
+    }
+  },
+
+  "encryption_policy": {
+    "algorithm": "AES-256-GCM",
+    "key_derivation": "PBKDF2-SHA256",
+    "pbkdf2_iterations": 100000,
+    "nonce_bytes": 12,
+    "auth_tag_bytes": 16,
+    "master_key_source": "AWS KMS",
+    "key_rotation_days": 90,
+    "data_keys_per_child": true,
+    "encryption_context": "child_id:field_name"
+  },
+
+  "token_lifecycle": {
+    "access_token": {
+      "algorithm": "RS256",
+      "ttl_minutes": 15,
+      "refresh_warning_minutes": 2,
+      "allowed_scopes": [
+        "read:child_profile",
+        "read:slots",
+        "write:registration",
+        "read:payment_status"
+      ],
+      "stateless": true,
+      "revocation_method": "Redis blacklist"
+    },
+    "refresh_token": {
+      "algorithm": "RS256",
+      "ttl_hours": 24,
+      "single_use": false,
+      "storage": "Secure HTTP-Only Cookie",
+      "revocation_method": "Redis blacklist"
+    }
+  },
+
+  "delegation_boundaries": {
+    "ai_handles": {
+      "natural_language_parsing": true,
+      "age_detection": true,
+      "clarification_questions": true,
+      "slot_availability_lookup": true,
+      "form_guidance": true,
+      "appointment_scheduling": true,
+      "email_notifications": true
+    },
+    "humans_handle": {
+      "payment_approvals": true,
+      "identity_verification": true,
+      "complex_exceptions": true,
+      "grievance_resolution": true,
+      "medical_review": true,
+      "account_recovery": true,
+      "data_deletion_requests": true
+    },
+    "exception_triggers": {
+      "age_ambiguity": {
+        "example": "6 or 7",
+        "action": "Escalate to human",
+        "sla_minutes": 120
+      },
+      "missing_documentation": {
+        "example": "No birth certificate",
+        "action": "Escalate to human",
+        "sla_minutes": 120
+      },
+      "medical_alert": {
+        "example": "Child has seizure history",
+        "action": "Escalate to medical staff",
+        "sla_minutes": 60
+      },
+      "enrollment_conflict": {
+        "example": "Sibling already registered, discount applies",
+        "action": "Escalate to admin",
+        "sla_minutes": 180
+      }
+    }
+  },
+
+  "database_access_control": {
+    "schemas": {
+      "parents": {
+        "roles": ["parent_readonly", "ymca_staff"],
+        "row_level_security": "parent_can_see_own_children_only"
+      },
+      "children": {
+        "roles": ["parent_readonly", "ymca_staff"],
+        "row_level_security": "staff_sees_all_if_age>=13_or_has_consent",
+        "encryption": "AES-256-GCM_all_pii_fields"
+      },
+      "registrations": {
+        "roles": ["parent_write", "ymca_staff"],
+        "row_level_security": "parent_sees_own_only"
+      },
+      "audit_logs": {
+        "roles": ["ymca_compliance", "ymca_ceo_readonly"],
+        "row_level_security": "staff_cannot_access_at_all",
+        "immutable": true
+      }
+    }
+  },
+
+  "audit_retention": {
+    "pii_access_logs": {
+      "storage": ["DynamoDB", "S3_WORM"],
+      "ttl_days": 2555,
+      "compliance": "HIPAA",
+      "archive_format": "JSON",
+      "encryption": "AES-256-KMS"
+    },
+    "session_logs": {
+      "storage": ["DynamoDB"],
+      "ttl_days": 365,
+      "compliance": "SOC2",
+      "archive_format": "JSON"
+    },
+    "exception_tickets": {
+      "storage": ["PostgreSQL", "S3_WORM"],
+      "ttl_days": 2555,
+      "compliance": "HIPAA",
+      "tamper_detection": true
+    }
+  },
+
+  "security_controls": {
+    "input_validation": {
+      "sql_injection": "parameterized_queries_only",
+      "prompt_injection": "rigid_data_schemas",
+      "xss": "html_escaping_on_output",
+      "command_injection": "no_dynamic_command_execution"
+    },
+    "network_security": {
+      "tls_version": "1.3",
+      "certificate_validation": true,
+      "hsts_headers": true,
+      "cors_policy": "whitelist_ymca_domain_only"
+    },
+    "rate_limiting": {
+      "per_parent": "100 requests/minute",
+      "per_ip": "1000 requests/minute",
+      "breach_action": "temp_block_and_alert"
+    },
+    "ddos_protection": {
+      "enabled": true,
+      "provider": "AWS WAF",
+      "geo_blocking": "allow_usa_only"
+    }
+  },
+
+  "siem_integration": {
+    "log_destination": "CloudWatch Logs",
+    "siem_platform": ["Splunk", "DataDog"],
+    "real_time_forwarding": true,
+    "alert_rules": [
+      {
+        "name": "Possible_data_exfiltration",
+        "trigger": "Parent accessing >50 children in 1 hour",
+        "action": "Revoke session + Alert admin"
+      },
+      {
+        "name": "Token_compromise_suspect",
+        "trigger": "Token used from 3+ different IPs in 1 minute",
+        "action": "Revoke all parent tokens + Force re-login"
+      },
+      {
+        "name": "Brute_force_attack",
+        "trigger": "5+ failed login attempts from same IP in 10 minutes",
+        "action": "Block IP via AWS WAF for 1 hour"
+      },
+      {
+        "name": "Late_night_access",
+        "trigger": "Staff accessing PII between 11 PM - 5 AM",
+        "action": "Create incident ticket + Review"
+      }
+    ]
+  }
+}
