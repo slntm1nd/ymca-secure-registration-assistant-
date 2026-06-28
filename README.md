@@ -8,7 +8,6 @@
 **Compliance:** COPPA, HIPAA, SOC 2 Type II
 
 ---
-
 ## Executive Summary
 
 This is an **enterprise-grade, conversational AI assistant** that automates Summer Camp registration for the YMCA of Greater Charlotte while maintaining **zero-trust security** principles and full compliance with children's data protection regulations (COPPA, HIPAA).
