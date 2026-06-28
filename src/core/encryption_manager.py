@@ -21,4 +21,4 @@ class EncryptedBundle:
     encrypted_at: str
     key_version: int
 
-# Скопируй сюда класс EncryptionManager полностью из app_security_core.py
+
