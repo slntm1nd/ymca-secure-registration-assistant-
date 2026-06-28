@@ -10,4 +10,4 @@ import jwt
 
 logger = logging.getLogger(__name__)
 
-# Скопируй сюда класс SessionManager полностью из app_security_core.py
+
