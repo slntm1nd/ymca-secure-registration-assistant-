@@ -58,8 +58,29 @@ The system is designed to:
 - **7-Year Retention:** HIPAA-mandated data preservation
 - **Real-Time SIEM:** CloudWatch → Splunk/DataDog for anomaly detection
 - **Tamper Detection:** GCM authentication tags detect any data modification
+<details>
+ 
+  
+  <summary> 📸 DEMO </summary>
+ 
+  
+  <br>
+  <p align="center">
+</details>
+<img width="1467" height="825" alt="Image" src="https://github.com/user-attachments/assets/dc7667ec-e485-4d25-a9bd-73cf8cc1082c" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/54587fbf-9c7a-479a-99d1-18d583aa4fbd" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/7bac52bc-00ad-4040-a83a-b13ecc418121" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/79468d0d-2f5d-4537-98f3-60012439c825" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/0e1ed29d-439b-41d4-b458-d60f2ffb76b3" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/c63d0bd3-34d5-4805-85f2-311fbd6c7ed8" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/c86a71d6-a5cd-4f34-b45c-1b7bd4c2070a" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/fe5f5456-7706-4ac1-b9cc-15396b8246f2" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/925a1cf7-9eb6-471b-899f-5da1991b8379" />
+<img width="1512" height="982" alt="Image" src="https://github.com/user-attachments/assets/af278b6c-3700-4f82-bca5-c3a3e525df91" />
 
----
+
+ </p>
+ ---
 
 ## Architecture at a Glance
 ```text
